@@ -1,0 +1,29 @@
+select 
+SYSDATETIME(),
+arcs.replica_server_name, 
+drcs.database_name, grp.name,
+drs.synchronization_state_desc,
+ars.synchronization_health_desc, 
+CASE WHEN drcs.is_failover_ready=0 THEN 'Possible Data Loss'
+     WHEN drcs.is_failover_ready=1 THEN 'No Data Loss' END as is_failover_ready, 
+ISNULL(convert(varchar,drs.log_send_queue_size,113),'Is Current Primary') log_send_queue_size,
+ISNULL(convert(varchar,drs.last_sent_time,113),'Is Current Primary') last_sent_time, 
+ISNULL(convert(varchar,drs.last_received_time,113),'Is Current Primary') last_received_time, 
+drs.last_commit_lsn, 
+drs.last_commit_time, 
+drs.last_hardened_lsn, 
+ISNULL(convert(varchar,drs.last_hardened_time,113),'Is Current Primary') last_hardened_time, 
+ISNULL(convert(varchar,drs.last_sent_lsn,113),'Is Current Primary') last_sent_lsn, 
+ISNULL(convert(varchar,drs.last_received_lsn,113),'Is Current Primary') last_received_lsn, 
+ISNULL(convert(varchar,drs.redo_rate,113),'Is Current Primary') redo_rate, 
+ISNULL(convert(varchar,drs.redo_queue_size,113),'Is Current Primary') redo_queue_size,
+ars.role_desc, 
+'ALTER DATABASE ['+drcs.database_name+'] SET HADR SUSPEND;' cmd_to_stop, 
+'ALTER DATABASE ['+drcs.database_name+'] SET HADR RESUME;' cmd_to_start 
+from sys.dm_hadr_availability_replica_states ars
+join sys.dm_hadr_database_replica_states drs on ars.replica_id = drs.replica_id
+join sys.dm_hadr_database_replica_cluster_states drcs on drs.group_database_id = drcs.group_database_id and drs.replica_id=drcs.replica_id
+join sys.dm_hadr_availability_replica_cluster_states arcs on drcs.replica_id=arcs.replica_id
+join sys.availability_groups grp on ars.group_id = grp.group_id
+WHERE (drs.synchronization_health_desc = 'NOT_HEALTHY') or (drs.last_received_time < DATEADD(hh,-1,GETDATE())) or (drs.last_commit_time < DATEADD(hh,-1,GETDATE()))
+order by arcs.replica_server_name, drcs.database_name;
