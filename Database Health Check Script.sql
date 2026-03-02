@@ -1,4 +1,4 @@
-select 
+﻿select 
 SYSDATETIME(),
 arcs.replica_server_name, 
 drcs.database_name, grp.name,
